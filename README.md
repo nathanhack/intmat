@@ -1,2 +1,2 @@
 # intmat
-Dense Mat lib for integers
+Sparse Mat lib for integers
