@@ -55,7 +55,7 @@ func (vec *Vector) offset() int {
 	return vec.mat.colStart
 }
 
-//String returns a string representation of this vector.
+// String returns a string representation of this vector.
 func (vec *Vector) String() string {
 	buff := &strings.Builder{}
 	table := tablewriter.NewWriter(buff)
@@ -82,7 +82,7 @@ func (vec *Vector) checkBounds(i int) {
 	}
 }
 
-//At returns the value at index i.
+// At returns the value at index i.
 func (vec *Vector) At(i int) int {
 	vec.checkBounds(i)
 	j := i + vec.offset()
@@ -93,7 +93,7 @@ func (vec *Vector) at(j int) int {
 	return vec.mat.rowValues[vec.mat.rowStart][j]
 }
 
-//Set sets the value at row index i and column index j to value.
+// Set sets the value at row index i to value.
 func (vec *Vector) Set(i, value int) {
 	vec.checkBounds(i)
 	j := i + vec.offset()
@@ -105,7 +105,7 @@ func (vec *Vector) set(j, value int) {
 	vec.mat.set(vec.mat.rowStart, j, value)
 }
 
-//SetVec replaces the values of this vector with the values of from vector a.
+// SetVec replaces the values of this vector with the values of from vector a.
 func (vec *Vector) SetVec(a *Vector, i int) {
 	vec.mat.setMatrix(a.mat, vec.mat.rowStart, i+vec.mat.colStart)
 }
@@ -138,7 +138,7 @@ func (vec *Vector) T() *TransposedVector {
 	}
 }
 
-//Slice creates a slice of the Vector.  The slice will be connected to the original Vector, changes to one
+// Slice creates a slice of the Vector.  The slice will be connected to the original Vector, changes to one
 // causes changes in the other.
 func (vec *Vector) Slice(i, len int) *Vector {
 	if len <= 0 {
@@ -153,6 +153,7 @@ func (vec *Vector) Slice(i, len int) *Vector {
 	}
 }
 
+// Add sets vec equal to the sum of a and b.
 func (vec *Vector) Add(a, b *Vector) {
 	if a == nil || b == nil {
 		panic("addition input was found to be nil")
@@ -172,6 +173,9 @@ func (vec *Vector) Add(a, b *Vector) {
 }
 
 func (vec *Vector) Equals(v *Vector) bool {
+	if vec == v {
+		return true
+	}
 	return vec.mat.Equals(v.mat)
 }
 
@@ -358,7 +362,7 @@ func (tvec *TransposedVector) Add(a, b *TransposedVector) {
 	tvec.mat.add(a.mat, b.mat)
 }
 
-//At returns the value at index i.
+// At returns the value at index i.
 func (tvec *TransposedVector) At(j int) int {
 	tvec.checkBounds(j)
 	i := j + tvec.offset()
@@ -369,7 +373,7 @@ func (tvec *TransposedVector) at(i int) int {
 	return tvec.mat.rowValues[i][tvec.mat.colStart]
 }
 
-//Set sets the value at row index i and column index j to value.
+// Set sets the value at row index i and column index j to value.
 func (tvec *TransposedVector) Set(j, value int) {
 	tvec.checkBounds(j)
 	i := j + tvec.offset()
@@ -377,12 +381,12 @@ func (tvec *TransposedVector) Set(j, value int) {
 	tvec.set(i, value)
 }
 
-//SetVec replaces the values of this vector with the values of from vector a.
+// SetVec replaces the values of this vector with the values of from vector a.
 func (tvec *TransposedVector) SetVec(a *TransposedVector, j int) {
 	tvec.mat.setMatrix(a.mat, j+tvec.mat.rowStart, tvec.mat.colStart)
 }
 
-//Slice creates a slice of the TransposedVector.  The slice will be connected to the original TransposedVector, changes to one
+// Slice creates a slice of the TransposedVector.  The slice will be connected to the original TransposedVector, changes to one
 // causes changes in the other.
 func (tvec *TransposedVector) Slice(j, len int) *TransposedVector {
 	if len <= 0 {
@@ -494,6 +498,7 @@ func (tvec *TransposedVector) XOr(a, b *TransposedVector) {
 	tvec.mat.xor(a.mat, b.mat)
 }
 
+//Negate 
 func (tvec *TransposedVector) Negate() {
 	tvec.mat.Negate()
 }

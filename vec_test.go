@@ -29,8 +29,8 @@ func TestVector_Dot(t *testing.T) {
 		a, b     *Vector
 		expected int
 	}{
-		{NewVec(3, 1, 1, 1), NewVec(3, 1, 1, 1), 1},
-		{NewVec(3, 1, 0, 1), NewVec(3, 1, 1, 1), 0},
+		{NewVec(3, 1, 1, 1), NewVec(3, 1, 1, 1), 3},
+		{NewVec(3, 1, 0, 1), NewVec(3, 1, 1, 1), 2},
 	}
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -160,7 +160,14 @@ func TestVector_Slice(t *testing.T) {
 		expectedOriginal *Vector
 		expectedSlice    *Vector
 	}{
-		{NewVec(5, 1, 0, 1, 0, 1), 1, 3, NewVec(3, 1, 1, 1), NewVec(5, 1, 1, 0, 1, 1), NewVec(3, 1, 0, 1)},
+		{
+			NewVec(5, 1, 0, 1, 0, 1),
+			1,
+			3,
+			NewVec(3, 1, 1, 1),
+			NewVec(5, 1, 1, 2, 1, 1),
+			NewVec(3, 1, 2, 1),
+		},
 	}
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -252,8 +259,7 @@ func TestVector_Negate(t *testing.T) {
 	tests := []struct {
 		x, expected *Vector
 	}{
-		{NewVec(4, 0, 1, 0, 1), NewVec(4, 1, 0, 1, 0)},
-		{NewVec(4, 0, 0, 1, 1), NewVec(4, 1, 1, 0, 0)},
+		{NewVec(4, 0, 1, -2, 3), NewVec(4, 0, -1, 2, -3)},
 	}
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -359,7 +365,14 @@ func TestTransposedVector_Slice(t *testing.T) {
 		expectedOriginal *TransposedVector
 		expectedSlice    *TransposedVector
 	}{
-		{NewTVec(5, 1, 0, 1, 0, 1), 1, 3, NewTVec(3, 1, 1, 1), NewTVec(5, 1, 1, 0, 1, 1), NewTVec(3, 1, 0, 1)},
+		{
+			NewTVec(5, 1, 0, 1, 0, 1),
+			1,
+			3,
+			NewTVec(3, 1, 1, 1),
+			NewTVec(5, 1, 1, 2, 1, 1),
+			NewTVec(3, 1, 2, 1),
+		},
 	}
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -507,8 +520,8 @@ func TestTransposedVector_Negate(t *testing.T) {
 	tests := []struct {
 		x, expected *TransposedVector
 	}{
-		{NewTVec(4, 0, 1, 0, 1), NewTVec(4, 1, 0, 1, 0)},
-		{NewTVec(4, 0, 0, 1, 1), NewTVec(4, 1, 1, 0, 0)},
+		{NewTVec(4, 0, 1, 0, 1), NewTVec(4, 0, -1, 0, -1)},
+		{NewTVec(4, 0, 0, 1, 1), NewTVec(4, 0, 0, -1, -1)},
 	}
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

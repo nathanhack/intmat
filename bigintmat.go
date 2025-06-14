@@ -3,33 +3,34 @@ package intmat
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-type Matrix struct {
-	rowValues map[int]map[int]int //hold rowValues for (X,Y)
-	colValues map[int]map[int]int //easy access to (Y,X)
-	rows      int                 // total number rows available to this matrix
-	rowStart  int                 // [rowStart,rowEnd)
-	cols      int                 // total number cols available to this matrix
-	colStart  int                 // [colStart,colEnd)
+type BigIntMatrix struct {
+	rowValues map[int]map[int]*big.Int //hold rowValues for (X,Y)
+	colValues map[int]map[int]*big.Int //easy access to (Y,X)
+	rows      int                      // total number rows available to this matrix
+	rowStart  int                      // [rowStart,rowEnd)
+	cols      int                      // total number cols available to this matrix
+	colStart  int                      // [colStart,colEnd)
 
 }
 
-type matrix struct {
-	RowValues map[int]map[int]int //hold rowValues for (X,Y)
-	ColValues map[int]map[int]int //easy access to (Y,X)
-	Rows      int                 // total number rows available to this matrix
-	RowStart  int                 // [rowStart,rowEnd)
-	Cols      int                 // total number cols available to this matrix
-	ColStart  int                 // [colStart,colEnd)
+type bigintmatrix struct {
+	RowValues map[int]map[int]*big.Int //hold rowValues for (X,Y)
+	ColValues map[int]map[int]*big.Int //easy access to (Y,X)
+	Rows      int                      // total number rows available to this matrix
+	RowStart  int                      // [rowStart,rowEnd)
+	Cols      int                      // total number cols available to this matrix
+	ColStart  int                      // [colStart,colEnd)
 
 }
 
-func (mat *Matrix) MarshalJSON() ([]byte, error) {
-	return json.Marshal(matrix{
+func (mat *BigIntMatrix) MarshalJSON() ([]byte, error) {
+	return json.Marshal(bigintmatrix{
 		RowValues: mat.rowValues,
 		ColValues: mat.colValues,
 		Rows:      mat.rows,
@@ -39,8 +40,8 @@ func (mat *Matrix) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (mat *Matrix) UnmarshalJSON(bytes []byte) error {
-	var m matrix
+func (mat *BigIntMatrix) UnmarshalJSON(bytes []byte) error {
+	var m bigintmatrix
 	err := json.Unmarshal(bytes, &m)
 	if err != nil {
 		return err
@@ -57,15 +58,16 @@ func (mat *Matrix) UnmarshalJSON(bytes []byte) error {
 // NewMat creates a new matrix with the specified number of rows and cols.
 // If values is empty, the matrix will be zeroized.
 // If values are not empty it must have rows*cols items.  The values are expected to
-// be 0's or 1's anything else may have unexpected behavior matrix's methods.
-func NewMat(rows, cols int, values ...int) *Matrix {
+// be big.NewInt(0)/nil or big.NewInt(1) for logical operations, but can be any *big.Int for arithmetic.
+// Note value refs passed in will NOT be copied into new big.ints
+func NewBigIntMat(rows, cols int, values ...*big.Int) *BigIntMatrix {
 	if len(values) != 0 && len(values) != rows*cols {
 		panic(fmt.Sprintf("matrix data length (%v) to size mismatch expected %v", len(values), rows*cols))
 	}
 
-	mat := Matrix{
-		rowValues: map[int]map[int]int{},
-		colValues: map[int]map[int]int{},
+	mat := BigIntMatrix{
+		rowValues: map[int]map[int]*big.Int{},
+		colValues: map[int]map[int]*big.Int{},
 		rows:      rows,
 		rowStart:  0,
 		cols:      cols,
@@ -76,7 +78,9 @@ func NewMat(rows, cols int, values ...int) *Matrix {
 		for i := 0; i < rows; i++ {
 			for j := 0; j < cols; j++ {
 				index := i*cols + j
-				mat.set(i, j, values[index])
+				if values[index] != nil {
+					mat.set(i, j, values[index])
+				}
 			}
 		}
 	}
@@ -84,15 +88,15 @@ func NewMat(rows, cols int, values ...int) *Matrix {
 	return &mat
 }
 
-func NewMatFromVec(vec *Vector) *Matrix {
-	return Copy(vec.mat)
+func NewBigIntMatFromVec(vec *BigIntVector) *BigIntMatrix {
+	return BigIntCopy(vec.mat)
 }
 
 // Identity create an identity matrix (one's on the diagonal).
-func Identity(size int) *Matrix {
-	mat := Matrix{
-		rowValues: map[int]map[int]int{},
-		colValues: map[int]map[int]int{},
+func BigIntIdentity(size int) *BigIntMatrix {
+	mat := BigIntMatrix{
+		rowValues: map[int]map[int]*big.Int{},
+		colValues: map[int]map[int]*big.Int{},
 		rows:      size,
 		rowStart:  0,
 		cols:      size,
@@ -100,17 +104,17 @@ func Identity(size int) *Matrix {
 	}
 
 	for i := 0; i < size; i++ {
-		mat.set(i, i, 1)
+		mat.set(i, i, big.NewInt(1))
 	}
 
 	return &mat
 }
 
 // Copy will create a NEW matrix that will have all the same values as m.
-func Copy(m *Matrix) *Matrix {
-	mat := Matrix{
-		rowValues: make(map[int]map[int]int),
-		colValues: make(map[int]map[int]int),
+func BigIntCopy(m *BigIntMatrix) *BigIntMatrix {
+	mat := BigIntMatrix{
+		rowValues: make(map[int]map[int]*big.Int),
+		colValues: make(map[int]map[int]*big.Int),
 		rows:      m.rows,
 		rowStart:  0,
 		cols:      m.cols,
@@ -128,7 +132,7 @@ func Copy(m *Matrix) *Matrix {
 
 // Slice creates a slice of the matrix.  The slice will be connected to the original matrix, changes to one
 // causes changes in the other.
-func (mat *Matrix) Slice(i, j, rows, cols int) *Matrix {
+func (mat *BigIntMatrix) Slice(i, j, rows, cols int) *BigIntMatrix {
 	if rows <= 0 || cols <= 0 {
 		panic("slice rows and cols must >= 1")
 	}
@@ -147,8 +151,8 @@ func (mat *Matrix) Slice(i, j, rows, cols int) *Matrix {
 	return mat.slice(r, c, rows, cols)
 }
 
-func (mat *Matrix) slice(r, c, rows, cols int) *Matrix {
-	return &Matrix{
+func (mat *BigIntMatrix) slice(r, c, rows, cols int) *BigIntMatrix {
+	return &BigIntMatrix{
 		rowValues: mat.rowValues,
 		rows:      rows,
 		rowStart:  r,
@@ -158,47 +162,51 @@ func (mat *Matrix) slice(r, c, rows, cols int) *Matrix {
 	}
 }
 
-func (mat *Matrix) checkRowBounds(i int) {
+func (mat *BigIntMatrix) checkRowBounds(i int) {
 	if i < 0 || i >= mat.rows {
 		panic(fmt.Sprintf("%v out of range: [0-%v]", i, mat.rows-1))
 	}
 }
 
-func (mat *Matrix) checkColBounds(j int) {
+func (mat *BigIntMatrix) checkColBounds(j int) {
 	if j < 0 || j >= mat.cols {
 		panic(fmt.Sprintf("%v out of range: [0-%v]", j, mat.cols-1))
 	}
 }
 
 // Dims returns the dimensions of the matrix.
-func (mat *Matrix) Dims() (int, int) {
+func (mat *BigIntMatrix) Dims() (int, int) {
 	return mat.rows, mat.cols
 }
 
 // At returns the value at row index i and column index j.
-func (mat *Matrix) At(i, j int) int {
+func (mat *BigIntMatrix) At(i, j int) *big.Int {
 	mat.checkRowBounds(i)
 	mat.checkColBounds(j)
 	r := i + mat.rowStart
 	c := j + mat.colStart
 
-	return mat.at(r, c)
+	ret := mat.at(r, c)
+	if ret == nil {
+		return big.NewInt(0)
+	}
+	return ret
 }
 
-func (mat *Matrix) at(r, c int) int {
+func (mat *BigIntMatrix) at(r, c int) *big.Int {
 	ys, ok := mat.rowValues[r]
 	if !ok {
-		return 0
+		return nil
 	}
 	v, ok := ys[c]
 	if !ok {
-		return 0
+		return nil
 	}
 	return v
 }
 
 // Set sets the value at row index i and column index j to value.
-func (mat *Matrix) Set(i, j, value int) {
+func (mat *BigIntMatrix) Set(i, j int, value *big.Int) {
 	mat.checkRowBounds(i)
 	mat.checkColBounds(j)
 	r := i + mat.rowStart
@@ -207,8 +215,10 @@ func (mat *Matrix) Set(i, j, value int) {
 	mat.set(r, c, value)
 }
 
-func (mat *Matrix) set(r, c, value int) {
-	if value == 0 {
+func (mat *BigIntMatrix) set(r, c int, value *big.Int) {
+
+	// Treat nil as zero for convenience
+	if value == nil || value.Sign() == 0 {
 		ys, ok := mat.rowValues[r]
 		if !ok {
 			return
@@ -234,14 +244,14 @@ func (mat *Matrix) set(r, c, value int) {
 
 	ys, ok := mat.rowValues[r]
 	if !ok {
-		ys = make(map[int]int)
+		ys = make(map[int]*big.Int)
 		mat.rowValues[r] = ys
 	}
 	ys[c] = value
 
 	xs, ok := mat.colValues[c]
 	if !ok {
-		xs = make(map[int]int)
+		xs = make(map[int]*big.Int)
 		mat.colValues[c] = xs
 	}
 	xs[r] = value
@@ -249,8 +259,8 @@ func (mat *Matrix) set(r, c, value int) {
 
 // T returns a matrix that is the transpose of the underlying matrix. Note the transpose
 // is connected to matrix it is a transpose of, and changes made to one affect the other.
-func (mat *Matrix) T() *Matrix {
-	return &Matrix{
+func (mat *BigIntMatrix) T() *BigIntMatrix {
+	return &BigIntMatrix{
 		rowValues: mat.colValues,
 		rows:      mat.cols,
 		rowStart:  mat.colStart,
@@ -261,12 +271,12 @@ func (mat *Matrix) T() *Matrix {
 }
 
 // Zeroize take the current matrix sets all values to 0.
-func (mat *Matrix) Zeroize() {
+func (mat *BigIntMatrix) Zeroize() {
 	mat.zeroize(mat.rowStart, mat.colStart, mat.rows, mat.cols)
 }
 
 // ZeroizeRange take the current matrix sets values inside the range to zero.
-func (mat *Matrix) ZeroizeRange(i, j, rows, cols int) {
+func (mat *BigIntMatrix) ZeroizeRange(i, j, rows, cols int) {
 	if i < 0 || j < 0 || rows < 0 || cols < 0 {
 		panic("zeroize must have positive values")
 	}
@@ -280,26 +290,23 @@ func (mat *Matrix) ZeroizeRange(i, j, rows, cols int) {
 	mat.zeroize(r, c, rows, cols)
 }
 
-func (mat *Matrix) zeroize(r, c, rows, col int) {
+func (mat *BigIntMatrix) zeroize(r, c, rows, col int) {
 	for rv, cs := range mat.rowValues {
 		if rv < r || r+rows <= rv {
 			continue
 		}
-		for cv, v := range cs {
-			if v == 0 {
-				continue
-			}
+		for cv, _ := range cs {
 			if cv < c || c+col <= cv {
 				continue
 			}
-			mat.set(rv, cv, 0)
+			mat.set(rv, cv, nil)
 		}
 	}
 }
 
 // Pow raises the matrix to the power of k using exponentiation by squaring.
 // The matrix must be square.
-func (mat *Matrix) Pow(k int) *Matrix {
+func (mat *BigIntMatrix) Pow(k int) *BigIntMatrix {
 	if mat.rows != mat.cols {
 		panic(fmt.Sprintf("matrix must be square to raise to a power, got %dx%d", mat.rows, mat.cols))
 	}
@@ -309,21 +316,21 @@ func (mat *Matrix) Pow(k int) *Matrix {
 	}
 
 	if k == 0 {
-		return Identity(mat.rows)
+		return BigIntIdentity(mat.rows)
 	}
 
-	result := Identity(mat.rows)
-	currentPower := Copy(mat) // Use a copy to avoid modifying the original matrix if k=1
+	result := BigIntIdentity(mat.rows)
+	currentPower := BigIntCopy(mat) // Use a copy to avoid modifying the original matrix if k=1
 
 	for k > 0 {
 		if k%2 == 1 {
-			temp := NewMat(mat.rows, mat.cols)
+			temp := NewBigIntMat(mat.rows, mat.cols)
 			temp.Mul(result, currentPower)
 			result = temp
 		}
 		k /= 2
 		if k > 0 { // Avoid unnecessary multiplication if k becomes 0
-			temp := NewMat(mat.rows, mat.cols)
+			temp := NewBigIntMat(mat.rows, mat.cols)
 			temp.Mul(currentPower, currentPower)
 			currentPower = temp
 		}
@@ -332,7 +339,7 @@ func (mat *Matrix) Pow(k int) *Matrix {
 }
 
 // Mul multiplies two matrices and stores the values in this matrix.
-func (mat *Matrix) Mul(a, b *Matrix) {
+func (mat *BigIntMatrix) Mul(a, b *BigIntMatrix) {
 	if a == nil || b == nil {
 		panic("multiply input was found to be nil")
 	}
@@ -355,7 +362,7 @@ func (mat *Matrix) Mul(a, b *Matrix) {
 	mat.mul(a, b)
 }
 
-func (mat *Matrix) mul(a, b *Matrix) {
+func (mat *BigIntMatrix) mul(a, b *BigIntMatrix) {
 	//first we need to clear mat
 	mat.zeroize(mat.rowStart, mat.colStart, mat.rows, mat.cols)
 
@@ -370,13 +377,14 @@ func (mat *Matrix) mul(a, b *Matrix) {
 				continue
 			}
 			j := c - b.colStart
-			value := 0
+			value := big.NewInt(0)
 			for ics, v1 := range cs {
 				ci := ics - a.colStart
 
 				v2, ok := rs[ci+b.rowStart]
 				if ok {
-					value += v1 * v2
+					prod := new(big.Int).Mul(v1, v2)
+					value.Add(value, prod)
 				}
 			}
 
@@ -386,7 +394,7 @@ func (mat *Matrix) mul(a, b *Matrix) {
 }
 
 // Add stores the addition of a and b in this matrix.
-func (mat *Matrix) Add(a, b *Matrix) {
+func (mat *BigIntMatrix) Add(a, b *BigIntMatrix) {
 	if a == nil || b == nil {
 		panic("addition input was found to be nil")
 	}
@@ -404,7 +412,7 @@ func (mat *Matrix) Add(a, b *Matrix) {
 	mat.add(a, b)
 }
 
-func (mat *Matrix) add(a, b *Matrix) {
+func (mat *BigIntMatrix) add(a, b *BigIntMatrix) {
 	//first we need to clear mat
 	mat.setMatrix(a, mat.rowStart, mat.colStart)
 
@@ -414,22 +422,27 @@ func (mat *Matrix) add(a, b *Matrix) {
 		for c, v := range cs {
 			j := c - b.colStart
 			mc := j + mat.colStart
-			mat.set(mr, mc, mat.at(mr, mc)+v)
+			currentVal := mat.at(mr, mc)
+			if currentVal == nil {
+				mat.set(mr, mc, new(big.Int).Set(v))
+			} else {
+				mat.set(mr, mc, new(big.Int).Add(currentVal, v))
+			}
 		}
 	}
 }
 
 // Column returns a map containing the non zero row indices as the keys and it's associated values.
-func (mat *Matrix) Column(j int) *TransposedVector {
+func (mat *BigIntMatrix) Column(j int) *TransposedBigIntVector {
 	mat.checkColBounds(j)
 
-	return &TransposedVector{
+	return &TransposedBigIntVector{
 		mat: mat.Slice(0, j, mat.rows, 1),
 	}
 }
 
 // SetColumn sets the values in column j. The values' keys are expected to be row indices.
-func (mat *Matrix) SetColumn(j int, vec *TransposedVector) {
+func (mat *BigIntMatrix) SetColumn(j int, vec *TransposedBigIntVector) {
 	mat.checkColBounds(j)
 
 	if mat.rows != vec.Len() {
@@ -441,7 +454,7 @@ func (mat *Matrix) SetColumn(j int, vec *TransposedVector) {
 	//first we'll zeroize
 	rs := mat.colValues[c]
 	for r := range rs {
-		mat.set(r, c, 0)
+		mat.set(r, c, nil)
 	}
 
 	//now set the new values
@@ -452,16 +465,16 @@ func (mat *Matrix) SetColumn(j int, vec *TransposedVector) {
 }
 
 // Row returns a map containing the non zero column indices as the keys and it's associated values.
-func (mat *Matrix) Row(i int) *Vector {
+func (mat *BigIntMatrix) Row(i int) *BigIntVector {
 	mat.checkRowBounds(i)
 
-	return &Vector{
+	return &BigIntVector{
 		mat: mat.Slice(i, 0, 1, mat.cols),
 	}
 }
 
 // SetRow sets the values in row i. The values' keys are expected to be column indices.
-func (mat *Matrix) SetRow(i int, vec *Vector) {
+func (mat *BigIntMatrix) SetRow(i int, vec *BigIntVector) {
 	mat.checkRowBounds(i)
 
 	if mat.cols != vec.Len() {
@@ -473,7 +486,7 @@ func (mat *Matrix) SetRow(i int, vec *Vector) {
 	//first we'll zeroize
 	cs := mat.rowValues[r]
 	for c := range cs {
-		mat.set(r, c, 0)
+		mat.set(r, c, nil)
 	}
 
 	//now set the new values
@@ -483,8 +496,8 @@ func (mat *Matrix) SetRow(i int, vec *Vector) {
 	}
 }
 
-// Equals return true if the m matrix has the same shape and values as mat matrix.
-func (mat *Matrix) Equals(m *Matrix) bool {
+// Equals return true if the m matrix has the same shape and values as this matrix.
+func (mat *BigIntMatrix) Equals(m *BigIntMatrix) bool {
 	if mat == m {
 		return true
 	}
@@ -513,15 +526,18 @@ func (mat *Matrix) Equals(m *Matrix) bool {
 			ac := j + m.colStart
 			v2, ok2Inner := acs[ac]
 
+			// A missing value mean a value of zero
+			// If both are missing then they are equal
 			if !ok1Inner && !ok2Inner {
 				continue
 			}
 
+			// if one is missing
 			if ok1Inner != ok2Inner {
 				return false
 			}
 
-			if v1 != v2 {
+			if v1.Cmp(v2) != 0 {
 				return false
 			}
 		}
@@ -530,7 +546,7 @@ func (mat *Matrix) Equals(m *Matrix) bool {
 }
 
 // String returns a string representation of this matrix.
-func (mat Matrix) String() string {
+func (mat BigIntMatrix) String() string {
 	buff := &strings.Builder{}
 	table := tablewriter.NewWriter(buff)
 
@@ -542,7 +558,7 @@ func (mat Matrix) String() string {
 	for i := 0; i < mat.rows; i++ {
 		row := make([]string, mat.cols)
 		for j := 0; j < mat.cols; j++ {
-			row[j] = fmt.Sprint(mat.At(i, j))
+			row[j] = fmt.Sprint(mat.At(i, j)) // mat.At(i,j) now returns *big.Int, fmt.Sprint handles it.
 		}
 		table.Append(row)
 	}
@@ -553,7 +569,7 @@ func (mat Matrix) String() string {
 
 // SetMatrix replaces the values of this matrix with the values of from matrix a. The shape of 'a' must be less than or equal mat.
 // If the 'a' shape is less then iOffset and jOffset can be used to place 'a' matrix in a specific location.
-func (mat *Matrix) SetMatrix(a *Matrix, iOffset, jOffset int) {
+func (mat *BigIntMatrix) SetMatrix(a *BigIntMatrix, iOffset, jOffset int) {
 	if iOffset < 0 || jOffset < 0 {
 		panic("offsets must be positive values [0,+)")
 	}
@@ -564,7 +580,7 @@ func (mat *Matrix) SetMatrix(a *Matrix, iOffset, jOffset int) {
 	mat.setMatrix(a, iOffset+mat.rowStart, jOffset+mat.colStart)
 }
 
-func (mat *Matrix) setMatrix(a *Matrix, rOffset, cOffset int) {
+func (mat *BigIntMatrix) setMatrix(a *BigIntMatrix, rOffset, cOffset int) {
 	mat.zeroize(rOffset, cOffset, a.rows, a.cols)
 
 	for r, cs := range a.rowValues {
@@ -578,182 +594,17 @@ func (mat *Matrix) setMatrix(a *Matrix, rOffset, cOffset int) {
 	}
 }
 
-// Negate performs a piecewise logical negation.
-func (mat *Matrix) Negate() {
+// Negate performs an inplace piecewise negation. For big.Int, this means changing the sign (flip 1 to -1, 0 to 0).
+func (mat *BigIntMatrix) Negate() {
 	for i := 0; i < mat.rows; i++ {
 		for j := 0; j < mat.cols; j++ {
 			r := i + mat.rowStart
 			c := j + mat.colStart
 
-			mat.set(r, c, -mat.at(r, c))
-		}
-	}
-}
-
-// And executes a piecewise logical AND on the two matrices and stores the values in this matrix.
-func (mat *Matrix) And(a, b *Matrix) {
-	if a == nil || b == nil {
-		panic("AND input was found to be nil")
-	}
-
-	if mat == a || mat == b {
-		panic("AND self assignment not allowed")
-	}
-
-	if a.rows != b.rows || a.cols != b.cols {
-		panic(fmt.Sprintf("AND shape misalignment both inputs must be equal found (%v,%v) and (%v,%v)", a.rows, a.cols, b.rows, b.cols))
-	}
-
-	if mat.rows != a.rows || mat.cols != a.cols {
-		panic(fmt.Sprintf("mat shape (%v,%v) does not match expected (%v,%v)", mat.rows, mat.cols, a.rows, b.cols))
-	}
-
-	mat.and(a, b)
-}
-
-func (mat *Matrix) and(a, b *Matrix) {
-	//first we need to clear mat
-	mat.zeroize(mat.rowStart, mat.colStart, mat.rows, mat.cols)
-
-	for r, cs1 := range a.rowValues {
-		if r < a.rowStart || a.rowStart+a.rows <= r {
-			continue
-		}
-		i := r - a.rowStart
-
-		cs2, has := b.rowValues[i+b.rowStart]
-		if !has {
-			continue
-		}
-
-		for c, _ := range cs1 {
-			if c < a.colStart || a.colStart+a.cols <= c {
-				continue
+			currentVal := mat.at(r, c)
+			if currentVal != nil {
+				mat.set(r, c, currentVal.Neg(currentVal))
 			}
-			j := c - a.colStart
-
-			_, has := cs2[c]
-			if !has {
-				continue
-			}
-			mat.Set(i, j, 1)
-		}
-	}
-}
-
-// Or executes a piecewise logical OR on the two matrices and stores the values in this matrix.
-func (mat *Matrix) Or(a, b *Matrix) {
-	if a == nil || b == nil {
-		panic("OR input was found to be nil")
-	}
-
-	if mat == a || mat == b {
-		panic("OR self assignment not allowed")
-	}
-
-	if a.rows != b.rows || a.cols != b.cols {
-		panic(fmt.Sprintf("OR shape misalignment both inputs must be equal found (%v,%v) and (%v,%v)", a.rows, a.cols, b.rows, b.cols))
-	}
-
-	if mat.rows != a.rows || mat.cols != a.cols {
-		panic(fmt.Sprintf("mat shape (%v,%v) does not match expected (%v,%v)", mat.rows, mat.cols, a.rows, b.cols))
-	}
-
-	mat.or(a, b)
-}
-
-func (mat *Matrix) or(a, b *Matrix) {
-	//first we need to clear mat
-	mat.zeroize(mat.rowStart, mat.colStart, mat.rows, mat.cols)
-
-	for r, cs1 := range a.rowValues {
-		if r < a.rowStart || a.rowStart+a.rows <= r {
-			continue
-		}
-		i := r - a.rowStart
-		for c, _ := range cs1 {
-			if c < a.colStart || a.colStart+a.cols <= c {
-				continue
-			}
-			j := c - a.colStart
-			mat.Set(i, j, 1)
-		}
-	}
-
-	for r, cs1 := range b.rowValues {
-		if r < b.rowStart || b.rowStart+b.rows <= r {
-			continue
-		}
-		i := r - b.rowStart
-		for c, _ := range cs1 {
-			if c < b.colStart || b.colStart+b.cols <= c {
-				continue
-			}
-			j := c - b.colStart
-			mat.Set(i, j, 1)
-		}
-	}
-}
-
-// XOr executes a piecewise logical XOR on the two matrices and stores the values in this matrix.
-func (mat *Matrix) XOr(a, b *Matrix) {
-	if a == nil || b == nil {
-		panic("XOR input was found to be nil")
-	}
-
-	if mat == a || mat == b {
-		panic("XOR self assignment not allowed")
-	}
-
-	if a.rows != b.rows || a.cols != b.cols {
-		panic(fmt.Sprintf("XOR shape misalignment both inputs must be equal found (%v,%v) and (%v,%v)", a.rows, a.cols, b.rows, b.cols))
-	}
-
-	if mat.rows != a.rows || mat.cols != a.cols {
-		panic(fmt.Sprintf("mat shape (%v,%v) does not match expected (%v,%v)", mat.rows, mat.cols, a.rows, b.cols))
-	}
-
-	mat.xor(a, b)
-}
-
-func (mat *Matrix) xor(a, b *Matrix) {
-	//first we need to clear mat
-	mat.zeroize(mat.rowStart, mat.colStart, mat.rows, mat.cols)
-
-	for r, cs1 := range a.rowValues {
-		if r < a.rowStart || a.rowStart+a.rows <= r {
-			continue
-		}
-		i := r - a.rowStart
-		for c, _ := range cs1 {
-			if c < a.colStart || a.colStart+a.cols <= c {
-				continue
-			}
-			j := c - a.colStart
-
-			if b.at(i+b.rowStart, j+b.colStart) == 1 {
-				continue
-			}
-
-			mat.Set(i, j, 1)
-		}
-	}
-
-	for r, cs1 := range b.rowValues {
-		if r < b.rowStart || b.rowStart+b.rows <= r {
-			continue
-		}
-		i := r - b.rowStart
-		for c, _ := range cs1 {
-			if c < b.colStart || b.colStart+b.cols <= c {
-				continue
-			}
-			j := c - b.colStart
-			if a.at(i+a.rowStart, j+a.colStart) == 1 {
-				continue
-			}
-
-			mat.Set(i, j, 1)
 		}
 	}
 }

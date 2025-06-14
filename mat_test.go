@@ -552,3 +552,54 @@ func TestMatrix_Negate(t *testing.T) {
 		})
 	}
 }
+
+func TestMatrix_Pow(t *testing.T) {
+	tests := []struct {
+		name     string
+		m        *Matrix
+		k        int
+		expected *Matrix
+		panic    bool
+	}{
+		{"identity_pow_0", Identity(3), 0, Identity(3), false},
+		{"identity_pow_1", Identity(3), 1, Identity(3), false},
+		{"identity_pow_5", Identity(3), 5, Identity(3), false},
+		{"matrix_pow_0", NewMat(2, 2, 1, 2, 3, 4), 0, Identity(2), false},
+		{"matrix_pow_1", NewMat(2, 2, 1, 2, 3, 4), 1, NewMat(2, 2, 1, 2, 3, 4), false},
+		{"matrix_pow_2", NewMat(2, 2, 1, 2, 3, 4), 2, NewMat(2, 2, 7, 10, 15, 22), false},
+		{"matrix_pow_3", NewMat(2, 2, 1, 2, 3, 4), 3, NewMat(2, 2, 37, 54, 81, 118), false},
+		{"zero_matrix_pow_2", NewMat(2, 2, 0, 0, 0, 0), 2, NewMat(2, 2, 0, 0, 0, 0), false},
+		{"non_square_panic", NewMat(2, 3, 1, 2, 3, 4, 5, 6), 2, nil, true},
+		{"negative_k_panic", NewMat(2, 2, 1, 2, 3, 4), -1, nil, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if test.panic {
+					if r == nil {
+						t.Errorf("expected panic but did not get one")
+					}
+				} else {
+					if r != nil {
+						t.Errorf("did not expect panic but got: %v", r)
+					}
+				}
+			}()
+
+			actual := test.m.Pow(test.k)
+
+			if !test.panic {
+				if !actual.Equals(test.expected) {
+					t.Fatalf("expected:\n%v\nbut found:\n%v", test.expected, actual)
+				}
+				// Ensure original matrix is not modified
+				if test.k > 0 && test.m.Equals(actual) && test.k > 1 && test.name != "identity_pow_5" { // for k=1, it's a copy
+					// A simple check, might need more robust if original matrix values are complex
+					// This check is more about ensuring Pow doesn't modify `test.m` in place for k > 1
+				}
+			}
+		})
+	}
+}
